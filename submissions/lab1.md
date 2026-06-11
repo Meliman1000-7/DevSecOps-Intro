@@ -92,6 +92,13 @@ Additional concern: `Access-Control-Allow-Origin: \*` is a wildcard CORS policy,
 
 \---
 
+## GitHub Community
+
+Starring a repository bookmarks it for later and signals community trust —
+star count is a common indicator of a project's popularity and adoption.
+Following professors, TAs, and classmates surfaces their activity in your feed,
+making it easy to discover new tools and stay updated on each other's work.
+
 ## Bonus: CI Smoke Test
 
 * Workflow file: `.github/workflows/lab1-smoke.yml`
