@@ -22,7 +22,7 @@
 
 <!-- Links to files in this PR; embed screenshots where useful -->
 
-* [`submissions/labN.md`](submissions/lab1.md)
+- `submissions/labN.md`
 
 \---
 
