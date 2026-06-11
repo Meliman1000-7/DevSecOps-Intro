@@ -103,8 +103,8 @@ making it easy to discover new tools and stay updated on each other's work.
 
 * Workflow file: `.github/workflows/lab1-smoke.yml`
 * Trigger: `pull\_request` on `main`
-* Run URL (must be green): *<link to your Actions run — fill in after pushing>*
-* Workflow run duration: *<fill in after run completes, e.g. 52s>*
+* Run URL (must be green): https://github.com/Meliman1000-7/DevSecOps-Intro/actions/runs/27373488077
+* Workflow run duration: 21s
 * Curl response excerpt:
 
 ```
