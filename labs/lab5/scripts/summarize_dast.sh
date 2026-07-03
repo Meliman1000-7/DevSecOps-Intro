@@ -21,7 +21,7 @@ with open('$ZAP_JSON') as f:
     data = json.load(f)
 total = 0
 for site in data.get('site', []):
-    if 'localhost:3000' not in site.get('@name', ''):
+    if 'juice-shop:3000' not in site.get('@name', ''):
         continue
     alerts = site.get('alerts', [])
     total = len(alerts)

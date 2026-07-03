@@ -29,7 +29,7 @@ by_risk = {'3': 0, '2': 0, '1': 0, '0': 0}
 risk_names = {'3': 'High', '2': 'Medium', '1': 'Low', '0': 'Info'}
 
 for site in sites:
-    if 'localhost:3000' not in site.get('@name', ''):
+    if 'juice-shop:3000' not in site.get('@name', ''):
         continue
     for alert in site.get('alerts', []):
         risk = alert.get('riskcode', '0')
@@ -43,7 +43,7 @@ for code in ['3','2','1','0']:
 # count unique URLs scanned
 urls = set()
 for site in sites:
-    if 'localhost:3000' not in site.get('@name', ''):
+    if 'juice-shop:3000' not in site.get('@name', ''):
         continue
     for alert in site.get('alerts', []):
         for inst in alert.get('instances', []):
