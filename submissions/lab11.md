@@ -150,3 +150,74 @@ TLS 1.3 cipher suite `TLS_CHACHA20_POLY1305_SHA256` in use with X25519 ephemeral
 OCSP stapling lets the Nginx server fetch and cache the certificate authority's revocation status response, then staple it to the TLS handshake — so the client gets revocation proof without making a separate HTTP request to the CA's OCSP responder, which eliminates a privacy leak (the CA learns which sites a user visits) and removes a latency hit on every new TLS connection. For a self-signed cert in this lab, OCSP stapling has no effect because there is no CA running an OCSP responder that could issue a signed status response for our cert — `ssl_stapling on` would cause Nginx to log a warning and send no staple, which is why the config leaves it off with a comment explaining the production path.
 
 ---
+
+## Bonus: WAF Sidecar with OWASP CRS
+
+### Setup choice
+- **WAF used:** ModSecurity v3.0.16 + nginx connector v1.0.4 (via `owasp/modsecurity-crs:nginx-alpine`)
+- **OWASP CRS version:** 3.3.10
+- **Paranoia level:** 1
+- **SecRuleEngine:** On (blocking mode, not DetectionOnly)
+- **Inbound anomaly threshold:** 5
+
+Note: Coraza is the modern Go-based reimplementation of ModSecurity (~70% feature parity as of 2026). ModSecurity v3 was chosen here because the OWASP CRS documentation has more complete examples and the `owasp/modsecurity-crs` Docker image provides batteries-included setup. In production, Coraza would be preferred for lower memory footprint and active maintenance.
+
+### Attack payload sent
+```
+GET /rest/products/search?q=%27%20OR%201%3D1-- HTTP/1.1
+```
+URL-decoded: `' OR 1=1--` — classic SQL injection probe.
+
+### Before WAF (Nginx alone)
+```
+no-waf (через nginx): HTTP 500
+```
+Nginx proxied the request to Juice Shop which returned 500 — no blocking, the payload reached the application layer.
+
+### After WAF
+```
+with-waf (через modsec): HTTP 403
+```
+ModSecurity blocked the request before it reached Juice Shop.
+
+### Audit log excerpt (the rule that fired)
+```json
+{
+  "transaction": {
+    "client_ip": "192.168.65.1",
+    "time_stamp": "Tue Jul 14 07:24:18 2026",
+    "is_interrupted": true,
+    "request": {
+      "method": "GET",
+      "uri": "/rest/products/search?q=%27%20OR%201%3D1--"
+    },
+    "response": { "http_code": 403 },
+    "producer": {
+      "modsecurity": "ModSecurity v3.0.16 (Linux)",
+      "connector": "ModSecurity-nginx v1.0.4",
+      "components": ["OWASP_CRS/3.3.10"]
+    },
+    "messages": [
+      {
+        "message": "SQL Injection Attack Detected via libinjection",
+        "details": {
+          "ruleId": "942100",
+          "data": "Matched Data: s&1c found within ARGS:q: ' OR 1=1--",
+          "severity": "2",
+          "file": "REQUEST-942-APPLICATION-ATTACK-SQLI.conf",
+          "tags": ["attack-sqli", "paranoia-level/1", "OWASP_CRS", "PCI/6.5.2"]
+        }
+      },
+      {
+        "message": "Inbound Anomaly Score Exceeded (Total Score: 5)",
+        "details": { "ruleId": "949110" }
+      }
+    ]
+  }
+}
+```
+
+**Rule ID: 942100** — "SQL Injection Attack Detected via libinjection" (REQUEST-942-APPLICATION-ATTACK-SQLI.conf). The payload scored 5 anomaly points (threshold = 5), triggering rule 949110 which performed the actual block.
+
+### Tradeoff analysis
+The WAF catches **runtime attack patterns** that SAST and DAST miss by definition: Semgrep found the vulnerable code at `routes/search.ts:23` and ZAP confirmed it with a crafted HTTP request during a controlled scan window, but neither tool monitors live production traffic 24/7. A WAF intercepts every request in real time, blocking exploit attempts from attackers who discover the endpoint independently — it's the difference between knowing a vulnerability exists and actively preventing exploitation while remediation is in progress. The cost is real: at paranoia level 2+, legitimate requests with unusual characters (search queries, markdown input, code snippets) get false-positived and blocked, requiring per-rule tuning that adds ops overhead; each Nginx config change also requires WAF rule review to avoid policy drift. A WAF should **not** be deployed in front of a service when it is the primary security control — it is a compensating control for when patching is delayed, not a substitute for fixing the underlying SQL injection in the application code.
